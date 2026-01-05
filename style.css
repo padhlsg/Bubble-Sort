@@ -141,6 +141,15 @@ body {
 	min-height: 12px;
 	/* Pastikan bar tetap terlihat meski nilai kecil */
 	text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+
+	/* Styling teks label */
+	font-size: 11px;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	padding-bottom: 4px;
+	writing-mode: vertical-rl;
+	text-orientation: mixed;
 }
 
 /* Status visual bar (membandingkan, ditukar, terurut) */

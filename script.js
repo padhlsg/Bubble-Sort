@@ -3,6 +3,7 @@
 
   // Elemen DOM
   const input = document.getElementById('arrayInput');
+  const typeSelect = document.getElementById('typeSelect');
   const generateBtn = document.getElementById('generateBtn');
   const sortBtn = document.getElementById('sortBtn');
   const shuffleBtn = document.getElementById('shuffleBtn');
@@ -28,22 +29,32 @@
     if (logList) logList.innerHTML = '';
   }
 
-  // Mengubah string input (pisahkan koma) menjadi array angka
+  // Mengubah string input (pisahkan koma) menjadi array objek { value, label }
   function parseArray(text) {
     if (!text) return [];
-    return text.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !Number.isNaN(n));
+    return text.split(',').map(s => {
+      s = s.trim();
+      // Cek format "Label:Value"
+      if (s.includes(':')) {
+        const [lbl, val] = s.split(':');
+        return { label: lbl.trim(), value: parseInt(val.trim(), 10) || 0 };
+      }
+      // Format angka biasa
+      return { label: s, value: parseInt(s, 10) };
+    }).filter(obj => !Number.isNaN(obj.value));
   }
 
   // Menampilkan array sebagai balok (bars) visual
   function renderArray(arr) {
     barsEl.innerHTML = '';
-    const max = Math.max(...arr, 1);
-    arr.forEach(v => {
+    const max = Math.max(...arr.map(o => o.value), 1);
+    arr.forEach(item => {
       const bar = document.createElement('div');
       bar.className = 'bar';
       // Tinggi bar proporsional terhadap nilai maksimum
-      bar.style.height = `${(v / max) * 100}%`;
-      bar.textContent = v;
+      bar.style.height = `${(item.value / max) * 100}%`;
+      bar.textContent = item.label;
+      bar.dataset.value = item.value; // Simpan nilai asli di dataset
       barsEl.appendChild(bar);
     });
   }
@@ -55,6 +66,7 @@
   function setControlsDisabled(disabled) {
     sortBtn.disabled = generateBtn.disabled = shuffleBtn.disabled = disabled;
     if (algoSelect) algoSelect.disabled = disabled;
+    if (typeSelect) typeSelect.disabled = disabled;
   }
 
   // Mendapatkan nilai delay dari input
@@ -75,7 +87,7 @@
 
     await sleep(getDelay());
 
-    // Tukar tinggi dan teks elemen
+    // Tukar tinggi, teks, dan data-value
     const ha = a.style.height;
     a.style.height = b.style.height;
     b.style.height = ha;
@@ -83,6 +95,10 @@
     const ta = a.textContent;
     a.textContent = b.textContent;
     b.textContent = ta;
+
+    const va = a.dataset.value;
+    a.dataset.value = b.dataset.value;
+    b.dataset.value = va;
 
     await sleep(getDelay());
 
@@ -103,10 +119,10 @@
       let swapped = false;
       for (let j = 0; j < n - i - 1; j++) {
         const a = bars()[j], b = bars()[j + 1];
-        const valA = Number(a.textContent);
-        const valB = Number(b.textContent);
+        const valA = Number(a.dataset.value);
+        const valB = Number(b.dataset.value);
 
-        logStep(`Bandingkan indeks ${j} (${valA}) dan ${j + 1} (${valB})`);
+        logStep(`Bandingkan ${a.textContent} (${valA}) dan ${b.textContent} (${valB})`);
 
         // Highlight sedang dibandingkan
         a.classList.add('comparing');
@@ -114,7 +130,7 @@
 
         await sleep(getDelay());
 
-        const va = Number(a.textContent), vb = Number(b.textContent);
+        const va = Number(a.dataset.value), vb = Number(b.dataset.value);
         if (va > vb) {
           logStep(`  ${va} > ${vb}, Tukar posisi.`);
           await swapBars(j, j + 1);
@@ -165,11 +181,11 @@
       await sleep(getDelay());
 
       let largest = root;
-      if (left < size && Number(b[left].textContent) > Number(b[largest].textContent)) largest = left;
-      if (right < size && Number(b[right].textContent) > Number(b[largest].textContent)) largest = right;
+      if (left < size && Number(b[left].dataset.value) > Number(b[largest].dataset.value)) largest = left;
+      if (right < size && Number(b[right].dataset.value) > Number(b[largest].dataset.value)) largest = right;
 
       if (largest !== root) {
-        logStep(`Heapify: Tukar root index ${root} (${b[root].textContent}) dengan index ${largest} (${b[largest].textContent})`);
+        logStep(`Heapify: Tukar root index ${root} (${b[root].dataset.value}) dengan index ${largest} (${b[largest].dataset.value})`);
       }
 
       idxs.forEach(i => b[i].classList.remove('comparing'));
@@ -208,13 +224,15 @@
       logStep(`Gap saat ini: ${gap}`);
       for (let i = gap; i < n; i++) {
         let j = i;
-        const tempVal = Number(bars()[i].textContent);
-        logStep(`  Cek elemen index ${i} (${tempVal}) dengan gap ${gap}`);
+        const tempVal = Number(bars()[i].dataset.value);
+        const tempLabel = bars()[i].textContent;
+
+        logStep(`  Cek elemen index ${i} (${tempLabel}:${tempVal}) dengan gap ${gap}`);
         while (j >= gap) {
           const a = bars()[j - gap], b = bars()[j];
           a.classList.add('comparing'); b.classList.add('comparing');
           await sleep(getDelay());
-          const va = Number(a.textContent), vb = Number(b.textContent);
+          const va = Number(a.dataset.value), vb = Number(b.dataset.value);
 
           if (va > vb) {
             logStep(`    ${va} > ${vb}, Tukar index ${j - gap} dan ${j}`);
@@ -249,16 +267,32 @@
 
   // Tombol Buat: Generate array acak
   generateBtn.addEventListener('click', () => {
-    // Generate 8 angka acak antara 1 dan 100
+    const isObject = typeSelect && typeSelect.value === 'object';
     const count = 8;
     const arr = [];
+    const names = ['Andi', 'Budi', 'Caca', 'Dedi', 'Euis', 'Feri', 'Gina', 'Hadi', 'Indah', 'Joko'];
+
     for (let i = 0; i < count; i++) {
-      arr.push(Math.floor(Math.random() * 100) + 1);
+      const val = Math.floor(Math.random() * 100) + 1;
+      if (isObject) {
+        // Ambil nama acak
+        const name = names[Math.min(i, names.length - 1)]; // atau random names[Math.floor(Math.random() * names.length)]
+        arr.push({ label: name, value: val });
+      } else {
+        arr.push({ label: val.toString(), value: val });
+      }
     }
-    input.value = arr.join(',');
+
+    // Update input value string
+    if (isObject) {
+      input.value = arr.map(x => `${x.label}:${x.value}`).join(', ');
+    } else {
+      input.value = arr.map(x => x.value).join(',');
+    }
+
     renderArray(arr);
     clearLog();
-    logStep('Array baru dibuat.');
+    logStep(isObject ? 'Data Mahasiswa dibuat.' : 'Array Angka dibuat.');
   });
 
   // Tombol Acak: Shuffle array yang ada
@@ -269,7 +303,15 @@
       const j = Math.floor(Math.random() * (i + 1));
       [arr[i], arr[j]] = [arr[j], arr[i]];
     }
-    input.value = arr.join(',');
+
+    // Update input string kembali sesuai format
+    const isObject = arr.some(x => Number(x.label) != x.label); // deteksi sederhana
+    if (isObject || (input.value.includes(':'))) {
+      input.value = arr.map(x => `${x.label}:${x.value}`).join(', ');
+    } else {
+      input.value = arr.map(x => x.value).join(',');
+    }
+
     renderArray(arr);
     clearLog();
     logStep('Array diacak.');
@@ -287,6 +329,14 @@
   });
 
   if (algoSelect) algoSelect.addEventListener('change', updateAlgoInfo);
+
+  // Listener jika tipe data berubah, kita reset atau generate baru
+  if (typeSelect) {
+    typeSelect.addEventListener('change', () => {
+      // Trigger generate agar data sesuai tipe baru
+      generateBtn.click();
+    });
+  }
 
   // Inisialisasi awal
   renderArray(parseArray(input.value));
